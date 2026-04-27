@@ -1,5 +1,8 @@
 const { BaseService } = require("./BaseService");
-const { Prisma } = require("@prisma/client");
+
+/**
+ * @description Mock service for TMC Working Day Calendar API
+ */
 
 class tmcWorkingDayCalendarData extends BaseService {
   constructor(db) {
@@ -8,26 +11,48 @@ class tmcWorkingDayCalendarData extends BaseService {
 
   /**
    * @description Function to fetch TMC Working Day Calendar data by scenarioId, vanningCenter and monthNumber
-   * @param {String} scenarioId - scenario id
-   * @param {String} vanningCenter - vanning center code
-   * @param {String} monthYear - month and year in YYYYMM format
-   * @returns {Array} TMC Working Day Calendar rows
    */
-  async getTmcWorkingDayCalendarData(scenarioId, vanningCenter, monthYear) {
+  async getTmcWorkingDayCalendarData(scenarioId, vanningCenter, monthNumber) {
     try {
-      return await this.prisma.$queryRaw`
-        select
-          tmc_date         as "prodDate",
-          day_of_week       as "dayOfWeek",
-          is_working_day    as "isWorkingDay",
-          work_day_percentage as "workDayPercentage",
-          week_number              as "week"
-        from supply_planning.tmc_working_day_calendar
-        where scenario_id = ${scenarioId}::uuid
-          and vanning_center = ${vanningCenter}
-          and month_number = ${Number(monthYear)}::integer
-        order by tmc_date;
-      `;
+      console.log(
+        "*********query***********",
+        `select * from supply_planning.tmc_working_day_calendar where scenario_id = ${scenarioId}::uuid and vanning_center = ${vanningCenter} and month_number = '${monthNumber}' and is_active = true;`
+      );
+
+      // Simulate DB error
+      if (process.env.VALIDATION === "dberror") {
+        throw new Error("getTmcWorkingDayCalendarData DB error");
+      }
+
+      // No data case
+      if (process.env.VALIDATION === "nodata") {
+        return [];
+      }
+
+      // Default sample rows
+      return [
+        {
+          prodDate: "2025-01-01",
+          dayOfWeek: "Wednesday",
+          isWorkingDay: true,
+          workDayPercentage: 100,
+          week: "WK202601",
+        },
+        {
+          prodDate: "2025-01-02",
+          dayOfWeek: "Thursday",
+          isWorkingDay: true,
+          workDayPercentage: 50,
+          week: "WK202601",
+        },
+        {
+          prodDate: "2025-01-03",
+          dayOfWeek: "Friday",
+          isWorkingDay: false,
+          workDayPercentage: 0,
+          week: "WK202601",
+        },
+      ];
     } catch (err) {
       console.log("Error in getTmcWorkingDayCalendarData:", err);
       throw err;
@@ -35,43 +60,30 @@ class tmcWorkingDayCalendarData extends BaseService {
   }
 
   /**
-   * @description Function to update TMC Working Day Calendar data
-   * @param {String} scenarioId - scenario id
-   * @param {String} vanningCenter - vanning center code
-   * @param {String} userEmail - user email
-   * @param {Array} data - [{ prodDate, workDayPercentage }]
-   * @param {Object} tx - Prisma transaction client
+   * @description Mock function to update TMC Working Day Calendar data
    */
   async updateTmcWorkingDayCalendarData(
     scenarioId,
     vanningCenter,
     userEmail,
     data,
-    tx = this.prisma
+    tx
   ) {
     try {
-      return await tx.$executeRaw`
-        UPDATE supply_planning.tmc_working_day_calendar twdc
-        SET
-            work_day_percentage = src.work_day_percentage,
-            is_working_day = (src.work_day_percentage <> 0),
-            last_updated_timestamp = CURRENT_TIMESTAMP,
-            updated_by = ${userEmail}
-        FROM (
-            VALUES
-            ${Prisma.join(
-              data.map(
-                (item) => Prisma.sql`(
-                  ${item.prodDate}::date,
-                  ${item.workDayPercentage}::integer
-                )`
-              )
-            )}
-        ) AS src(tmc_date, work_day_percentage)
-        WHERE twdc.scenario_id = ${scenarioId}::uuid
-          AND twdc.vanning_center = ${vanningCenter}
-          AND twdc.tmc_date = src.tmc_date;
-      `;
+      console.log(
+        "*********query***********",
+        `UPDATE supply_planning.tmc_working_day_calendar SET work_day_percentage, is_working_day WHERE scenario_id = ${scenarioId}::uuid AND vanning_center = ${vanningCenter}, rows=${(data || []).length}`
+      );
+
+      if (process.env.VALIDATION === "dberror") {
+        throw new Error("updateTmcWorkingDayCalendarData DB error");
+      }
+
+      if (process.env.VALIDATION === "upserterror") {
+        throw new Error("updateTmcWorkingDayCalendarData error");
+      }
+
+      return "success";
     } catch (err) {
       console.log("Error in updateTmcWorkingDayCalendarData:", err);
       throw err;
@@ -85,18 +97,61 @@ class tmcWorkingDayCalendarData extends BaseService {
    */
   async getTmcWorkingDayCalendarByScenarioIdVc(body) {
     try {
-      return await this.prisma.$queryRaw`
-        select
-          tmc_date         as "prodDate",
-          day_of_week       as "dayOfWeek",
-          is_working_day    as "isWorkingDay",
-          work_day_percentage as "workDayPercentage",
-          week_number              as "week"
-        from supply_planning.tmc_working_day_calendar
-        where scenario_id = ${body.scenarioId}::uuid
-          and vanning_center = ${body.vanningCenter}
-        order by tmc_date;
-      `;
+      if (body.vanningCenter === "NoTMC") {
+        return [];
+      }
+      // Default sample rows
+      return [
+        {
+          prodDate: "2025-02-01",
+          dayOfWeek: "Wednesday",
+          isWorkingDay: true,
+          workDayPercentage: 100,
+          week: "WK202501",
+        },
+        {
+          prodDate: "2025-02-02",
+          dayOfWeek: "Thursday",
+          isWorkingDay: true,
+          workDayPercentage: 50,
+          week: "WK202501",
+        },
+        {
+          prodDate: "2025-02-03",
+          dayOfWeek: "Friday",
+          isWorkingDay: true,
+          workDayPercentage: 10,
+          week: "WK202501",
+        },
+        {
+          prodDate: "2025-02-04",
+          dayOfWeek: "Wednesday",
+          isWorkingDay: true,
+          workDayPercentage: 100,
+          week: "WK202501",
+        },
+        {
+          prodDate: "2025-02-05",
+          dayOfWeek: "Thursday",
+          isWorkingDay: true,
+          workDayPercentage: 50,
+          week: "WK202501",
+        },
+        {
+          prodDate: "2025-02-06",
+          dayOfWeek: "Friday",
+          isWorkingDay: true,
+          workDayPercentage: 10,
+          week: "WK202501",
+        },
+        {
+          prodDate: "2025-02-07",
+          dayOfWeek: "Saturday",
+          isWorkingDay: false,
+          workDayPercentage: 0,
+          week: "WK202501",
+        },
+      ];
     } catch (err) {
       console.log("Error in getTmcWorkingDayCalendarByScenarioIdVc:", err);
       throw err;
@@ -104,19 +159,27 @@ class tmcWorkingDayCalendarData extends BaseService {
   }
 
   /**
-   * @description Check if all vanning centers have TMC Working Day Calendar data
+   * @description Mock: Check if all vanning centers have TMC Working Day Calendar data
    * @param {String} scenarioId - scenario UUID
    * @param {Array} vanningCenters - expected vanning center strings
    * @returns {boolean} true if all VCs have data
    */
   async isTmcWorkingDayCalDataComplete(scenarioId, vanningCenters) {
     try {
-      const result = await this.prisma
-        .$queryRaw`SELECT COUNT(DISTINCT vanning_center) = ${vanningCenters.length} AS is_complete
-          FROM supply_planning.tmc_working_day_calendar
-          WHERE scenario_id = ${scenarioId}::uuid
-          AND vanning_center = ANY(${vanningCenters}::text[]);`;
-      return result && result.length > 0 && result[0].is_complete === true;
+      console.log(
+        "*********query***********",
+        `SELECT COUNT(DISTINCT vanning_center) = ${vanningCenters.length} AS is_complete FROM supply_planning.tmc_working_day_calendar WHERE scenario_id = ${scenarioId}::uuid AND vanning_center = ANY(${vanningCenters}::text[])`
+      );
+      if (process.env.COMPLETENESS === "nodata") {
+        return false;
+      }
+      if (process.env.COMPLETENESS === "partialvc") {
+        return false;
+      }
+      if (process.env.COMPLETENESS === "dberror") {
+        throw new Error("isTmcWorkingDayCalDataComplete DB error");
+      }
+      return true;
     } catch (error) {
       console.log("Error in isTmcWorkingDayCalDataComplete:", error);
       throw error;
@@ -124,28 +187,47 @@ class tmcWorkingDayCalendarData extends BaseService {
   }
 
   /**
-   * @description Function to fetch TMC Working Days data by scenarioId, vanningCenter and vanningDates
+   * @description Function to fetch TMC Working Day Calendar data by scenarioId, vanningCenter and vanningDates
    * @param {String} scenarioId - scenario id
    * @param {String} vanningCenter - vanning center code
    * @param {Array} vanningDates - array of vanning dates
-   * @returns {Array} TMC Working Days data
+   * @returns {Array} TMC Working Day Calendar data
    */
   async getTmcWorkingDaysByDates(scenarioId, vanningCenter, vanningDates) {
     try {
-      return await this.prisma.$queryRaw`
-        select
-          tmc_date         as "prodDate",
-          day_of_week       as "dayOfWeek",
-          is_working_day    as "isWorkingDay",
-          work_day_percentage as "workDayPercentage",
-          week_number              as "week"
-        from supply_planning.tmc_working_day_calendar
-        where scenario_id = ${scenarioId}::uuid
-          and vanning_center = ${vanningCenter}
-          and tmc_date in (${Prisma.join(vanningDates.map((date) => Prisma.sql`${date}::date`))})
-          and is_working_day = true
-        order by tmc_date;
-      `;
+      if (process.env.VALIDATION === "tmccalfetcherror") {
+        throw new Error("getTmcWorkingDaysByDates DB error");
+      }
+      if (process.env.VALIDATION === "nonworkingdays") {
+        const response = (vanningDates || []).map((date) => ({
+          prodDate: date,
+          dayOfWeek: "Wednesday",
+          isWorkingDay: true,
+          workDayPercentage: 100,
+          week: "WK202501",
+        }));
+        response.shift();
+        return response;
+      }
+      if (process.env.VALIDATION === "dateobjectproddate") {
+        const response = (vanningDates || []).map((date) => ({
+          prodDate: new Date(date),
+          dayOfWeek: "Wednesday",
+          isWorkingDay: true,
+          workDayPercentage: 100,
+          week: "WK202501",
+        }));
+        response.shift();
+        return response;
+      }
+
+      return (vanningDates || []).map((date) => ({
+        prodDate: date,
+        dayOfWeek: "Wednesday",
+        isWorkingDay: true,
+        workDayPercentage: 100,
+        week: "WK202501",
+      }));
     } catch (err) {
       console.log("Error in getTmcWorkingDaysByDates:", err);
       throw err;

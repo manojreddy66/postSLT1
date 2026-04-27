@@ -11,13 +11,27 @@ class scenariosData extends BaseService {
   }
 
   /**
-   * @description Function to get scenario data by scenarioName without V
+   * @description Function to get scenario data by type, namc, line & cycle
    */
   async getScenarioData(scenarioName) {
     try {
-      const search = `${scenarioName}%`;
-      return await this.prisma
-        .$queryRaw`select * from supply_planning.scenarios where scenario_name like ${search};`;
+      console.log(
+        "************query************",
+        `select * from supply_planning.scenarios where where scenario_name like '${scenarioName}%';`
+      );
+      if (process.env.VALIDATION === "error") {
+        throw new Error("getScenarioData DB error");
+      }
+      if (process.env.VALIDATION === "inactivescenarios") {
+        return [
+          { scenario_name: "AP/TMMI/Line1_Jan25_V1", is_active: false },
+          { scenario_name: "AP/TMMI/Line1_Jan25_V2", is_active: false },
+        ];
+      }
+      if (process.env.VALIDATION === "activescenarios") {
+        return [{ scenario_name: "AP/TMMI/Line1_Jan25_V1", is_active: true }];
+      }
+      return [];
     } catch (err) {
       console.log("Error in getScenarioData:", err);
       throw err;
@@ -43,7 +57,9 @@ class scenariosData extends BaseService {
       } else {
         apMonth = formatScenarioCycle(cycle);
       }
-      return await tx.$queryRaw`INSERT INTO supply_planning.scenarios (user_email, user_name, scenario_name,
+      console.log(
+        "************query************",
+        `INSERT INTO supply_planning.scenarios (user_email, user_name, scenario_name,
                     namc,
                     line,
                     plan_type,
@@ -59,7 +75,12 @@ class scenariosData extends BaseService {
                     ${input.namc}, ${input.line},${input.type}, ${startMonthYear},
                     ${endMonthYear}, ${cycle}, ${getsudoMonth}, ${apMonth},
                     ${SCENARIO_STATUSES.NOT_STARTED}, ${input.userEmail}, CURRENT_TIMESTAMP)
-                    returning scenario_id;`;
+                    returning scenario_id;`
+      );
+      if (process.env.VALIDATION === "dberror") {
+        throw new Error("createScenario DB error");
+      }
+      return "success";
     } catch (err) {
       console.log("Error in createScenario:", err);
       throw err;
@@ -69,15 +90,19 @@ class scenariosData extends BaseService {
   /**
    * @description Function to get scenario data count for table
    */
-  async getScenarioTableDataCount(queryConditionForDataNCountByTab) {
+  async getScenarioTableDataCount(query) {
     try {
-      const condition = queryConditionForDataNCountByTab || Prisma.empty;
-      return await this.prisma.$queryRaw`
-      select count(*)
-      from supply_planning.scenarios
-      where is_active = true
-      ${condition}
-    `;
+      console.log("************query************", query);
+      if (process.env.FLAG === "DBERROR") {
+        throw new Error("DB ERROR");
+      }
+      if (process.env.FLAG === "NO DATA") {
+        return [{ count: 0 }];
+      }
+      if (query.includes("Getsudo")) {
+        return [{ count: 3 }];
+      }
+      return [{ count: 3 }];
     } catch (err) {
       console.log("Error in getScenarioTableDataCount:", err);
       throw err;
@@ -87,19 +112,62 @@ class scenariosData extends BaseService {
   /**
    * @description Function to get scenario data for table
    */
-  async getScenarioTableData(
-    queryConditionForDataNCountByTab,
-    perPageRow,
-    startAt
-  ) {
+  async getScenarioTableData(query, limit, offSet) {
     try {
-      const condition = queryConditionForDataNCountByTab || Prisma.empty;
-      return await this.prisma.$queryRaw`
-      select *
-      from supply_planning.scenarios
-      where is_active = true
-      ${condition}
-       order by created_date_timestamp desc limit ${perPageRow} offset ${startAt};`;
+      console.log("************query************", query);
+      if (process.env.FLAG === "NO DATA") {
+        return [];
+      }
+      if (query[0].includes("Getsudo")) {
+        return [
+          {
+            scenario_name: "Getsudo/TMMI/Line1_Cycle_V1",
+            scenario_id: "uniqueuuid_1234567890",
+            plan_type: "Getsudo",
+            namc: "TMMI",
+            line: "Line1",
+            scenario_cycle: "Jan25",
+            user_name: "Priyadarshini Gangone",
+            last_updated_timestamp: "2025-8-20",
+            scenario_status: "Not Started",
+          },
+        ];
+      }
+      return [
+        {
+          scenario_name: "AP/TMMI/Line1_Cycle_V1",
+          scenario_id: "uniqueuuid_1234567891",
+          plan_type: "AP",
+          namc: "TMMI",
+          line: "Line1",
+          scenario_cycle: "Jan25",
+          user_name: "Priyadarshini Gangone",
+          last_updated_timestamp: null,
+          scenario_status: "Completed",
+        },
+        {
+          scenario_name: "Getsudo/TMMK/Line1_Cycle_V1",
+          scenario_id: "uniqueuuid_1234567892",
+          plan_type: "Getsudo",
+          namc: "TMMK",
+          line: "Line1",
+          scenario_cycle: "Jan25",
+          user_name: "Priyadarshini Gangone",
+          last_updated_timestamp: "2025-8-20",
+          scenario_status: "In Progress",
+        },
+        {
+          scenario_name: "AP/TMMC/Line1_Cycle_V1",
+          scenario_id: "uniqueuuid_1234567893",
+          plan_type: "AP",
+          namc: "TMMC",
+          line: "Line1",
+          scenario_cycle: "Jan25",
+          user_name: "Priyadarshini Gangone",
+          last_updated_timestamp: "2025-8-20",
+          scenario_status: "Not Started",
+        },
+      ];
     } catch (err) {
       console.log("Error in getScenarioTableData:", err);
       throw err;
@@ -111,24 +179,168 @@ class scenariosData extends BaseService {
    */
   async getScenarioDataByIdAndName(scenarioId, scenarioName) {
     try {
-      return await this.prisma
-        .$queryRaw`select * from supply_planning.scenarios where scenario_id = ${scenarioId}::uuid 
-                   and scenario_name = ${scenarioName} and is_active = true;`;
+      console.log(
+        "*********query***********",
+        `select * from supply_planning.scenarios where scenario_id = ${scenarioId} 
+                   and scenario_name = ${scenarioName} and is_active = true;`
+      );
+      if (scenarioName === "error") {
+        throw new Error("getScenarioDataByIdAndName Error");
+      }
+      if (scenarioName === "nodata") {
+        return [];
+      }
+      return [
+        {
+          scenario_name: scenarioName,
+          scenario_id: scenarioId,
+          plan_type: "Getsudo",
+          namc: "TMMI",
+          line: "Line1",
+          scenario_cycle: "Jan25",
+          user_name: "Priyadarshini Gangone",
+          last_updated_timestamp: "2025-8-20",
+          scenario_status: "Not Started",
+        },
+      ];
     } catch (err) {
       console.log("Error in getScenarioDataByIdAndName:", err);
       throw err;
     }
   }
-
   /**
-   * @description Function to get scenario data by scenarioId.
+   * @description Function to get scenario data by scenarioId
    */
   async getScenarioDataById(scenarioId) {
     try {
-      return await this.prisma
-        .$queryRaw`select * from supply_planning.scenarios where scenario_id = ${scenarioId}::uuid and is_active = true;`;
+      console.log(
+        "*********query***********",
+        `select * from supply_planning.scenarios where scenario_id = ${scenarioId} and is_active = true;`
+      );
+      if (
+        process.env.VALIDATION === "error" ||
+        process.env.VALIDATION === "scenariofetcherror" ||
+        scenarioId === "e2940022-37f7-46ba-9fac-11fdb213914c"
+      ) {
+        throw new Error("getScenarioDataById Error");
+      }
+      if (
+        process.env.VALIDATION === "scenarionotfound" ||
+        scenarioId === "a9240022-37f7-46ba-9fac-11fdb213914c" ||
+        scenarioId === "err"
+      ) {
+        return [];
+      }
+      if (process.env.VALIDATION === "completed") {
+        return [
+          {
+            scenario_id: scenarioId,
+            scenario_name: "Getsudo/TMMI/Line1_Jan25_V1",
+            user_email: "gangone.priyadarshini@toyota.com",
+            user_name: "Priyadarshini Gangone",
+            scenario_status: "Completed",
+            is_active: true,
+            last_updated_timestamp: "2025-08-20",
+          },
+        ];
+      }
+      if (process.env.VALIDATION === "notcreator") {
+        return [
+          {
+            scenario_id: scenarioId,
+            scenario_name: "Getsudo/TMMI/Line1_Jan25_V1",
+            user_email: "gangone.priyadarshini@toyota.com",
+            user_name: "Priyadarshini Gangone",
+            scenario_status: "Not Started",
+            is_active: true,
+            last_updated_timestamp: "2025-08-20",
+          },
+        ];
+      }
+      if (process.env.VALIDATION === "inprogress" || process.env.VALIDATION === "alreadyinprogress") {
+        return [
+          {
+            scenario_id: scenarioId,
+            scenario_status: "In Progress",
+            start_month_year: "202502",
+            end_month_year: "202603",
+            is_active: true,
+            user_email: "gangone.priyadarshini@toyota.com",
+          },
+        ];
+      }
+      if (process.env.VALIDATION === "noprepopulateddata") {
+        return [
+          {
+            scenario_id: scenarioId,
+            scenario_name: "Getsudo/TMMI/Line1_Jan25_V1",
+            user_email: "gangone.priyadarshini@toyota.com",
+            plan_type: "Getsudo",
+            namc: "TMMI",
+            line: "Line1",
+            scenario_cycle: "Jan25",
+            start_month_year: "202502",
+            end_month_year: "202603",
+            user_name: "Priyadarshini Gangone",
+            scenario_status: "Not Started",
+            is_active: true,
+            last_updated_timestamp: "2025-08-20",
+          },
+        ];
+      }
+      if (process.env.VALIDATION === "inactive") {
+        return [
+          {
+            scenario_id: scenarioId,
+            scenario_name: "Getsudo/TMMI/Line1_Jan25_V1",
+            user_email: "gangone.priyadarshini@toyota.com",
+            user_name: "Priyadarshini Gangone",
+            scenario_status: "Not Started",
+            is_active: false,
+            last_updated_timestamp: "2025-08-20",
+          },
+        ];
+      }
+      return [
+        {
+          scenario_id: scenarioId,
+          scenario_name: "Getsudo/TMMI/Line1_Jan25_V1",
+          user_email: "gangone.priyadarshini@toyota.com",
+          plan_type: "Getsudo",
+          namc: "TMMI",
+          line: "Line1",
+          scenario_cycle: "Jan25",
+          start_month_year: "202502",
+          end_month_year: "202603",
+          user_name: "Priyadarshini Gangone",
+          scenario_status: "Not Started",
+          is_active: true,
+          last_updated_timestamp: "2025-08-20",
+        },
+      ];
     } catch (err) {
       console.log("Error in getScenarioDataById:", err);
+      throw err;
+    }
+  }
+
+  /**
+   * @description function to update scenario status
+   */
+  async updateScenarioStatus(scenarioId, userEmail, scenarioStatus, tx) {
+    try {
+      console.log(
+        "*********query***********",
+        `UPDATE supply_planning.scenarios SET scenario_status=${scenarioStatus} WHERE scenario_id=${scenarioId}`
+      );
+
+      if (process.env.VALIDATION === "dberror" || process.env.VALIDATION === "scenariostatuserror") {
+        throw new Error("updateScenarioStatus DB error");
+      }
+
+      return "success";
+    } catch (err) {
+      console.log("Error in updateScenarioStatus:", err);
       throw err;
     }
   }
@@ -138,39 +350,12 @@ class scenariosData extends BaseService {
    */
   async deleteScenario(input) {
     try {
-      return await this.prisma.$queryRaw`
-        update supply_planning.scenarios
-        set is_active = false,
-            last_updated_timestamp = CURRENT_TIMESTAMP,
-            updated_by = ${input.userEmail}
-        where scenario_id = ${input.scenarioId}::uuid
-        returning scenario_id;
-      `;
+      if (process.env.VALIDATION === "dberror") {
+        throw new Error("deleteScenario DB error");
+      }
+      return "success";
     } catch (err) {
       console.log("Error in deleteScenario:", err);
-      throw err;
-    }
-  }
-
-  /**
-   * @description Function to update scenario status in supply_planning.scenarios table.
-   */
-  async updateScenarioStatus(
-    scenarioId,
-    userEmail,
-    scenarioStatus,
-    tx = this.prisma
-  ) {
-    try {
-      return await tx.$queryRaw`UPDATE supply_planning.scenarios
-        SET scenario_status = ${scenarioStatus},
-            updated_by = ${userEmail},
-            last_updated_timestamp = CURRENT_TIMESTAMP
-        WHERE scenario_id = ${scenarioId}::uuid
-        returning scenario_id;
-      `;
-    } catch (err) {
-      console.log("Error in updateScenarioStatus:", err);
       throw err;
     }
   }
